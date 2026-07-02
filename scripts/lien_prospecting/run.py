@@ -85,6 +85,8 @@ def run_extraction(
     )
 
     marker_index = result.stdout.find(FINAL_RESPONSE_MARKER)
+    if marker_index == -1:
+        return None, "invalid_json"
     text = result.stdout[marker_index + len(FINAL_RESPONSE_MARKER):].strip()
 
     try:

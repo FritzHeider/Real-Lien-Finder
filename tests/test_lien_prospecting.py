@@ -126,6 +126,25 @@ class TestRunExtraction:
             {"parcel_number": "456", "owner_name": "John Smith", "lien_amount": 1200}
         ]
 
+    def test_missing_marker_does_not_fabricate_rows_from_stray_bracket_text(self):
+        # No "[+] Final Agent Response:" marker anywhere. A stray bracketed
+        # array happens to sit at the byte offset the old buggy slice
+        # (stdout[-1 + len(marker):]) would land on, so this must NOT be
+        # parsed as a real result.
+        mock_result = MagicMock(
+            returncode=0,
+            stdout="x" * 24 + '[{"parcel_number": "FAKE", "lien_amount": 999999}]',
+            stderr="",
+        )
+
+        with patch("subprocess.run", return_value=mock_result):
+            rows, failure = run.run_extraction(
+                "Maricopa AZ", SOURCE, 7, Path("/fake/web-use")
+            )
+
+        assert rows is None
+        assert failure is not None
+
     def test_invokes_subprocess_with_expected_args(self):
         web_use_dir = Path("/fake/web-use")
         mock_result = MagicMock(

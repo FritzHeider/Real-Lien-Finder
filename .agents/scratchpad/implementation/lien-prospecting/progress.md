@@ -50,3 +50,23 @@ Step 3 is not complete — 3 of 4 wave tasks remain.
   rejected, Builder fixed, Finalizer independently re-verified both content and bookkeeping.
 - Commit: 45918be (content) + bookkeeping fix. Runtime tasks task-1782956776-3da7/-5b5e
   both closed.
+
+## 2026-07-02 — Builder fix for review.rejected (task-1782957184-ffa1: marker-absent bug)
+
+Root cause confirmed exactly as review.rejected stated: run_extraction used
+`result.stdout.find(FINAL_RESPONSE_MARKER)` without checking for -1, so when the
+marker is absent, `text = stdout[-1 + len(marker):]` sliced an arbitrary substring
+of raw stdout and fed it into json.loads/regex fallback as if it were real agent
+output.
+
+RED: added test_missing_marker_does_not_fabricate_rows_from_stray_bracket_text —
+stdout with no marker but a coincidental bracketed JSON array at the byte offset
+the buggy slice would land on. Reproduced the exact false-positive: returned
+fabricated rows with failure=None.
+
+GREEN: added a guard `if marker_index == -1: return None, "invalid_json"` before
+the slice, in scripts/lien_prospecting/run.py's run_extraction.
+
+Verify: `uv run pytest tests/test_lien_prospecting.py -v` — 10/10 pass.
+
+Handing back to Fresh-Eyes Critic.
