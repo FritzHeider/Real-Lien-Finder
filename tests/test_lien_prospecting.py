@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -144,6 +145,59 @@ class TestRunExtraction:
 
         assert rows is None
         assert failure is not None
+
+    def test_no_marker_returns_max_steps_exhausted(self):
+        mock_result = MagicMock(
+            returncode=0,
+            stdout="[*] Starting Web-Use Agent...\n[*] Step 40/40 reached.\n",
+            stderr="",
+        )
+
+        with patch("subprocess.run", return_value=mock_result):
+            rows, failure = run.run_extraction(
+                "Maricopa AZ", SOURCE, 7, Path("/fake/web-use")
+            )
+
+        assert rows is None
+        assert failure == "max_steps_exhausted"
+
+    def test_marker_present_but_unparsable_returns_invalid_json(self):
+        mock_result = MagicMock(
+            returncode=0,
+            stdout="[+] Final Agent Response:\nI could not find any lien data.\n",
+            stderr="",
+        )
+
+        with patch("subprocess.run", return_value=mock_result):
+            rows, failure = run.run_extraction(
+                "Maricopa AZ", SOURCE, 7, Path("/fake/web-use")
+            )
+
+        assert rows is None
+        assert failure == "invalid_json"
+
+    def test_non_zero_exit_code_returns_subprocess_error(self):
+        mock_result = MagicMock(returncode=1, stdout="", stderr="boom")
+
+        with patch("subprocess.run", return_value=mock_result):
+            rows, failure = run.run_extraction(
+                "Maricopa AZ", SOURCE, 7, Path("/fake/web-use")
+            )
+
+        assert rows is None
+        assert failure == "subprocess_error"
+
+    def test_subprocess_timeout_returns_subprocess_error_without_raising(self):
+        with patch(
+            "subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="uv run python src/cli.py", timeout=300),
+        ):
+            rows, failure = run.run_extraction(
+                "Maricopa AZ", SOURCE, 7, Path("/fake/web-use")
+            )
+
+        assert rows is None
+        assert failure == "subprocess_error"
 
     def test_invokes_subprocess_with_expected_args(self):
         web_use_dir = Path("/fake/web-use")

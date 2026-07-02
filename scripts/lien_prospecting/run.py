@@ -76,17 +76,23 @@ def run_extraction(
     if url and url not in prompt:
         prompt = f"Start at {url}. {prompt}"
 
-    result = subprocess.run(
-        ["uv", "run", "python", "src/cli.py", "--query", prompt, "--headless", "--steps", "40"],
-        cwd=web_use_dir,
-        timeout=300,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["uv", "run", "python", "src/cli.py", "--query", prompt, "--headless", "--steps", "40"],
+            cwd=web_use_dir,
+            timeout=300,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.TimeoutExpired:
+        return None, "subprocess_error"
+
+    if result.returncode != 0:
+        return None, "subprocess_error"
 
     marker_index = result.stdout.find(FINAL_RESPONSE_MARKER)
     if marker_index == -1:
-        return None, "invalid_json"
+        return None, "max_steps_exhausted"
     text = result.stdout[marker_index + len(FINAL_RESPONSE_MARKER):].strip()
 
     try:
