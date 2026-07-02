@@ -156,5 +156,13 @@ def load_ledger(path: Path) -> list[dict]:
         return list(csv.DictReader(f))
 
 
+def diff_new_rows(
+    parsed_rows: list[dict], existing_rows: list[dict], dedup_key: list[str]
+) -> list[dict]:
+    """Return the parsed_rows whose row_key isn't already in existing_rows."""
+    existing_keys = {row_key(row, dedup_key) for row in existing_rows}
+    return [row for row in parsed_rows if row_key(row, dedup_key) not in existing_keys]
+
+
 if __name__ == "__main__":
     pass

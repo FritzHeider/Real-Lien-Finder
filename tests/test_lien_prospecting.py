@@ -317,3 +317,36 @@ class TestRowKey:
         }
 
         assert run.row_key(row_a, ["parcel_number"]) != run.row_key(row_b, ["parcel_number"])
+
+
+class TestDiffNewRows:
+    def test_excludes_rows_already_in_ledger(self):
+        existing_rows = [{"parcel_number": "123", "owner_name": "Jane Doe"}]
+        parsed_rows = [
+            {"parcel_number": "123", "owner_name": "Jane Doe"},
+            {"parcel_number": "456", "owner_name": "John Smith"},
+        ]
+
+        result = run.diff_new_rows(parsed_rows, existing_rows, ["parcel_number"])
+
+        assert result == [{"parcel_number": "456", "owner_name": "John Smith"}]
+
+    def test_no_existing_rows_returns_all_parsed_rows(self):
+        parsed_rows = [{"parcel_number": "123", "owner_name": "Jane Doe"}]
+
+        result = run.diff_new_rows(parsed_rows, [], ["parcel_number"])
+
+        assert result == parsed_rows
+
+    def test_dedups_via_fallback_hash_when_dedup_key_fields_absent(self):
+        row = {
+            "owner_name": "Jane Doe",
+            "property_address": "1 Main St",
+            "filing_date": "2026-07-01",
+        }
+        existing_rows = [dict(row)]
+        parsed_rows = [dict(row)]
+
+        result = run.diff_new_rows(parsed_rows, existing_rows, ["parcel_number", "document_number"])
+
+        assert result == []
