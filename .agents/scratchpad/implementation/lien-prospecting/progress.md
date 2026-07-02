@@ -11,11 +11,11 @@ verified present and usable — see context.md "Flagged deviation" note (`.env` 
 ## Active Wave
 Sequential chain, all in `scripts/lien_prospecting/run.py` (single file):
 1. `task-1782957184-efbd` (key: `code-assist:lien-prospecting:step-03:scaffold-and-config-loading`) — status: **CLOSED**. `resolve_web_use_dir()` + `load_counties()` + `build_prompt()`, AC#6. Commits 9b07783 (scaffold) + dc8db39 (hermetic-test fix). Verified independently by Finalizer.
-2. `task-1782957184-ffa1` (key: `code-assist:lien-prospecting:step-03:run-extraction-happy-and-fallback`) — status: in_progress, handed to Fresh-Eyes Critic. `run_extraction()` implemented: builds prompt via `build_prompt` + prepends `Start at {url}.` if the source URL isn't already in the prompt text, calls `subprocess.run(["uv","run","python","src/cli.py","--query",prompt,"--headless","--steps","40"], cwd=web_use_dir, timeout=300, capture_output=True, text=True)`, extracts text after the `[+] Final Agent Response:` marker, tries `json.loads` directly then falls back to `re.search(r'\[.*\]', text, re.DOTALL)`. 3 new tests added (clean JSON / prose-wrapped regex fallback / subprocess invocation shape), all passing alongside the prior 6 (9/9 total). Deliberately does NOT yet handle `subprocess.TimeoutExpired`, non-zero exit codes, or distinguish `max_steps_exhausted` from `invalid_json` when the marker is absent — those branches are task-75e3's explicit scope (AC#3/AC#5), which is blocked on this task and next in the queue.
-3. `task-1782957184-75e3` (key: `code-assist:lien-prospecting:step-03:run-extraction-error-handling`) — status: open, blocked_by #2. Error branches (subprocess_error/max_steps_exhausted/invalid_json), AC#3/AC#5. **NEXT once this task passes review.**
-4. `task-1782957184-c7cb` (key: `code-assist:lien-prospecting:step-03:min-lien-amount-filter`) — status: open, blocked_by #3. `apply_min_lien_amount()`, AC#4.
+2. `task-1782957184-ffa1` (key: `code-assist:lien-prospecting:step-03:run-extraction-happy-and-fallback`) — status: **CLOSED**. `run_extraction()` happy path + regex fallback (AC#1/AC#2). Fresh-Eyes Critic rejected once for an unguarded `marker_index == -1` case fabricating rows from stray bracket text; Builder fixed with an explicit guard (`if marker_index == -1: return None, "invalid_json"`), added a regression test. Finalizer verified 10/10 tests pass and no other unguarded `find()` calls remain. Commits: implementation + guard fix.
+3. `task-1782957184-75e3` (key: `code-assist:lien-prospecting:step-03:run-extraction-error-handling`) — status: ready, unblocked. Error branches (subprocess_error/max_steps_exhausted/invalid_json), AC#3/AC#5. **CURRENT — dispatching now.**
+4. `task-1782957184-c7cb` (key: `code-assist:lien-prospecting:step-03:min-lien-amount-filter`) — status: blocked, blocked_by #3. `apply_min_lien_amount()`, AC#4.
 
-Step 3 is not complete — 3 of 4 wave tasks remain.
+Step 3 is not complete — 2 of 4 wave tasks remain.
 
 ## Verification Notes
 - `task-1782957184-efbd`: initial pass content-correct but rejected by Fresh-Eyes Critic —
