@@ -1,8 +1,8 @@
 ---
-status: pending
+status: completed
 created: 2026-07-01
-started: null
-completed: null
+started: 2026-07-01
+completed: 2026-07-02
 ---
 # Task: County Config Schema + Maricopa AZ Config
 
