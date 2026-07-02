@@ -1,0 +1,21 @@
+# scripts/lien_prospecting/counties/douglas_co.yaml
+name: "Douglas County, CO"
+lookback_days: 7
+min_lien_amount: null   # e.g. 1000 to ignore small liens
+sources:
+  - kind: tax_lien
+    url: "https://www.zeusauction.com"
+    extract_prompt: >
+      This site lists tax lien sales for multiple counties. Select or search
+      for Douglas County, Colorado, then find tax liens sold/filed in the
+      last {lookback_days} days. For each parcel, extract: parcel_number,
+      owner_name, property_address, lien_amount, sale_or_filing_date. Return
+      ONLY a JSON array of objects with those exact keys, no prose.
+  - kind: contractor_lien
+    url: "https://apps.douglas.co.us/LandmarkWeb/"
+    extract_prompt: >
+      Search recorded documents of type "Mechanic's Lien" filed in the last
+      {lookback_days} days. For each result, extract: document_number,
+      owner_name, property_address, lien_amount (if shown), filing_date.
+      Return ONLY a JSON array, no prose.
+dedup_key: ["parcel_number", "document_number"]

@@ -1,0 +1,21 @@
+# scripts/lien_prospecting/counties/palm_beach_fl.yaml
+name: "Palm Beach County, FL"
+lookback_days: 7
+min_lien_amount: null   # e.g. 1000 to ignore small liens
+sources:
+  - kind: tax_lien
+    url: "https://taxdeed.mypalmbeachclerk.com"
+    extract_prompt: >
+      Find tax deed sales filed/scheduled in the last {lookback_days} days. For
+      each parcel, extract: parcel_number, owner_name, property_address,
+      lien_amount, sale_or_filing_date. Return ONLY a JSON array of objects
+      with those exact keys, no prose.
+  - kind: contractor_lien
+    url: "https://www.mypalmbeachclerk.com"
+    extract_prompt: >
+      Navigate to the Official Records / recorded documents search on this
+      site. Search recorded documents of type "Claim of Lien" or "Mechanic's
+      Lien" filed in the last {lookback_days} days. For each result, extract:
+      document_number, owner_name, property_address, lien_amount (if shown),
+      filing_date. Return ONLY a JSON array, no prose.
+dedup_key: ["parcel_number", "document_number"]
