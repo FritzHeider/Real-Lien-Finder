@@ -1,9 +1,21 @@
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from scripts.lien_prospecting import run
 
 
 COUNTIES_DIR = run.PROJECT_ROOT / "scripts" / "lien_prospecting" / "counties"
+
+SOURCE = {
+    "kind": "tax_lien",
+    "url": "https://example-county.gov/liens",
+    "extract_prompt": (
+        "Find tax liens filed in the last {lookback_days} days. "
+        "Return ONLY a JSON array of objects, no prose."
+    ),
+}
 
 
 class TestResolveWebUseDir:
@@ -68,3 +80,71 @@ class TestBuildPrompt:
 
         assert "14" in prompt
         assert "{lookback_days}" not in prompt
+
+
+class TestRunExtraction:
+    def test_valid_json_parses_cleanly(self):
+        mock_result = MagicMock(
+            returncode=0,
+            stdout=(
+                "[*] Starting Web-Use Agent...\n"
+                "[+] Final Agent Response:\n"
+                '[{"parcel_number": "123", "owner_name": "Jane Doe", "lien_amount": 500}]\n'
+            ),
+            stderr="",
+        )
+
+        with patch("subprocess.run", return_value=mock_result):
+            rows, failure = run.run_extraction(
+                "Maricopa AZ", SOURCE, 7, Path("/fake/web-use")
+            )
+
+        assert failure is None
+        assert rows == [
+            {"parcel_number": "123", "owner_name": "Jane Doe", "lien_amount": 500}
+        ]
+
+    def test_prose_wrapped_json_recovered_via_regex_fallback(self):
+        mock_result = MagicMock(
+            returncode=0,
+            stdout=(
+                "[+] Final Agent Response:\n"
+                "Here are the results:\n"
+                '[{"parcel_number": "456", "owner_name": "John Smith", "lien_amount": 1200}]\n'
+                "Let me know if you need more.\n"
+            ),
+            stderr="",
+        )
+
+        with patch("subprocess.run", return_value=mock_result):
+            rows, failure = run.run_extraction(
+                "Maricopa AZ", SOURCE, 7, Path("/fake/web-use")
+            )
+
+        assert failure is None
+        assert rows == [
+            {"parcel_number": "456", "owner_name": "John Smith", "lien_amount": 1200}
+        ]
+
+    def test_invokes_subprocess_with_expected_args(self):
+        web_use_dir = Path("/fake/web-use")
+        mock_result = MagicMock(
+            returncode=0,
+            stdout="[+] Final Agent Response:\n[]\n",
+            stderr="",
+        )
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            run.run_extraction("Maricopa AZ", SOURCE, 7, web_use_dir)
+
+        args, kwargs = mock_run.call_args
+        command = args[0]
+        assert command[:3] == ["uv", "run", "python"]
+        assert "src/cli.py" in command
+        assert "--headless" in command
+        assert "--steps" in command
+        assert "40" in command
+        assert kwargs["cwd"] == web_use_dir
+        assert kwargs["timeout"] == 300
+        assert kwargs["capture_output"] is True
+        assert kwargs["text"] is True

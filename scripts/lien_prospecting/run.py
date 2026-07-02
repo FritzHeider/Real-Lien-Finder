@@ -61,5 +61,46 @@ def build_prompt(source: dict, lookback_days: int) -> str:
     return source["extract_prompt"].format(lookback_days=lookback_days)
 
 
+FINAL_RESPONSE_MARKER = "[+] Final Agent Response:"
+
+
+def run_extraction(
+    county_name: str, source: dict, lookback_days: int, web_use_dir: Path
+) -> tuple[list[dict] | None, str | None]:
+    """Drive Web-Use's src/cli.py for one source and parse its final answer.
+
+    Returns (rows, None) on success, or (None, failure_reason) otherwise.
+    """
+    prompt = build_prompt(source, lookback_days)
+    url = source.get("url")
+    if url and url not in prompt:
+        prompt = f"Start at {url}. {prompt}"
+
+    result = subprocess.run(
+        ["uv", "run", "python", "src/cli.py", "--query", prompt, "--headless", "--steps", "40"],
+        cwd=web_use_dir,
+        timeout=300,
+        capture_output=True,
+        text=True,
+    )
+
+    marker_index = result.stdout.find(FINAL_RESPONSE_MARKER)
+    text = result.stdout[marker_index + len(FINAL_RESPONSE_MARKER):].strip()
+
+    try:
+        return json.loads(text), None
+    except json.JSONDecodeError:
+        pass
+
+    match = re.search(r"\[.*\]", text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0)), None
+        except json.JSONDecodeError:
+            pass
+
+    return None, "invalid_json"
+
+
 if __name__ == "__main__":
     pass

@@ -10,12 +10,12 @@ verified present and usable — see context.md "Flagged deviation" note (`.env` 
 
 ## Active Wave
 Sequential chain, all in `scripts/lien_prospecting/run.py` (single file):
-1. `task-1782957184-efbd` (key: `code-assist:lien-prospecting:step-03:scaffold-and-config-loading`) — status: open, READY. `resolve_web_use_dir()` + `load_counties()` + `build_prompt()`, AC#6.
-2. `task-1782957184-ffa1` (key: `code-assist:lien-prospecting:step-03:run-extraction-happy-and-fallback`) — status: open, blocked_by #1. `run_extraction()` happy path + regex fallback, AC#1/AC#2.
-3. `task-1782957184-75e3` (key: `code-assist:lien-prospecting:step-03:run-extraction-error-handling`) — status: open, blocked_by #2. Error branches (subprocess_error/max_steps_exhausted/invalid_json), AC#3/AC#5.
+1. `task-1782957184-efbd` (key: `code-assist:lien-prospecting:step-03:scaffold-and-config-loading`) — status: **CLOSED**. `resolve_web_use_dir()` + `load_counties()` + `build_prompt()`, AC#6. Commits 9b07783 (scaffold) + dc8db39 (hermetic-test fix). Verified independently by Finalizer.
+2. `task-1782957184-ffa1` (key: `code-assist:lien-prospecting:step-03:run-extraction-happy-and-fallback`) — status: in_progress, handed to Fresh-Eyes Critic. `run_extraction()` implemented: builds prompt via `build_prompt` + prepends `Start at {url}.` if the source URL isn't already in the prompt text, calls `subprocess.run(["uv","run","python","src/cli.py","--query",prompt,"--headless","--steps","40"], cwd=web_use_dir, timeout=300, capture_output=True, text=True)`, extracts text after the `[+] Final Agent Response:` marker, tries `json.loads` directly then falls back to `re.search(r'\[.*\]', text, re.DOTALL)`. 3 new tests added (clean JSON / prose-wrapped regex fallback / subprocess invocation shape), all passing alongside the prior 6 (9/9 total). Deliberately does NOT yet handle `subprocess.TimeoutExpired`, non-zero exit codes, or distinguish `max_steps_exhausted` from `invalid_json` when the marker is absent — those branches are task-75e3's explicit scope (AC#3/AC#5), which is blocked on this task and next in the queue.
+3. `task-1782957184-75e3` (key: `code-assist:lien-prospecting:step-03:run-extraction-error-handling`) — status: open, blocked_by #2. Error branches (subprocess_error/max_steps_exhausted/invalid_json), AC#3/AC#5. **NEXT once this task passes review.**
 4. `task-1782957184-c7cb` (key: `code-assist:lien-prospecting:step-03:min-lien-amount-filter`) — status: open, blocked_by #3. `apply_min_lien_amount()`, AC#4.
 
-Publishing `tasks.ready` for `task-1782957184-efbd` (only unblocked task in the wave).
+Step 3 is not complete — 3 of 4 wave tasks remain.
 
 ## Verification Notes
 - `task-1782957184-efbd`: initial pass content-correct but rejected by Fresh-Eyes Critic —
@@ -26,6 +26,9 @@ Publishing `tasks.ready` for `task-1782957184-efbd` (only unblocked task in the 
   hermeticity by running the same assertions in a standalone script with `WEB_USE_DIR`
   unset and no reliance on any real sibling directory — passes. Full suite:
   `uv run pytest tests/test_lien_prospecting.py -v` — 6 passed. Commit: dc8db39.
+  Finalizer independently re-ran the full suite (6/6 pass) and re-read the fixed test body
+  directly (tmp_path fake checkout + monkeypatch.setattr(run, "PROJECT_ROOT", ...), no
+  reliance on the real sibling) — confirmed hermetic. Runtime task closed.
 
 ## Completed Steps
 
