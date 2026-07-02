@@ -6,6 +6,7 @@ will (in later tasks) diff results against a per-county ledger.
 """
 
 import csv
+import hashlib
 import json
 import os
 import re
@@ -127,6 +128,23 @@ def apply_min_lien_amount(rows: list[dict], min_amount: float | None) -> list[di
             kept.append(row)
 
     return kept
+
+
+def row_key(row: dict, dedup_key: list[str]) -> str:
+    """Build a dedup key from the present/non-empty dedup_key fields.
+
+    Falls back to a sha1 hash of (owner_name, property_address, filing_date)
+    when none of the dedup_key fields are present/non-empty, so a row is
+    never silently dropped or falsely re-flagged as new every run.
+    """
+    present = [str(row[k]) for k in dedup_key if row.get(k)]
+    if present:
+        return "|".join(present)
+
+    fallback = "|".join(
+        str(row.get(field, "")) for field in ("owner_name", "property_address", "filing_date")
+    )
+    return hashlib.sha1(fallback.encode()).hexdigest()
 
 
 def load_ledger(path: Path) -> list[dict]:

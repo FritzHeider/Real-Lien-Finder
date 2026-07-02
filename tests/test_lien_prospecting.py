@@ -273,3 +273,47 @@ class TestLoadLedger:
                 "owner_name": "Jane Doe",
             }
         ]
+
+
+class TestRowKey:
+    def test_uses_present_dedup_key_fields(self):
+        row = {"parcel_number": "123", "document_number": "", "owner_name": "Jane Doe"}
+
+        result = run.row_key(row, ["parcel_number", "document_number"])
+
+        assert result == "123"
+
+    def test_joins_multiple_present_dedup_key_fields(self):
+        row = {"parcel_number": "123", "document_number": "456"}
+
+        result = run.row_key(row, ["parcel_number", "document_number"])
+
+        assert result == "123|456"
+
+    def test_fallback_hash_is_deterministic_for_identical_rows(self):
+        row_a = {
+            "owner_name": "Jane Doe",
+            "property_address": "1 Main St",
+            "filing_date": "2026-07-01",
+        }
+        row_b = dict(row_a)
+
+        key_a = run.row_key(row_a, ["parcel_number", "document_number"])
+        key_b = run.row_key(row_b, ["parcel_number", "document_number"])
+
+        assert key_a == key_b
+        assert key_a != ""
+
+    def test_fallback_differs_for_different_rows(self):
+        row_a = {
+            "owner_name": "Jane Doe",
+            "property_address": "1 Main St",
+            "filing_date": "2026-07-01",
+        }
+        row_b = {
+            "owner_name": "John Smith",
+            "property_address": "2 Main St",
+            "filing_date": "2026-07-01",
+        }
+
+        assert run.row_key(row_a, ["parcel_number"]) != run.row_key(row_b, ["parcel_number"])
