@@ -271,6 +271,18 @@ def main(
     return summary
 
 
+def build_summary_payload(county_results: dict) -> dict:
+    """Build the SUMMARY_JSON payload from main()'s per-county results.
+
+    quiet is True only when every county had zero new rows and zero failures,
+    so the invoking skill knows it can skip the PushNotification call.
+    """
+    quiet = all(
+        result["new"] == 0 and not result["failed_sources"] for result in county_results.values()
+    )
+    return {"counties": county_results, "quiet": quiet}
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the lien-prospecting watch.")
     parser.add_argument(
@@ -284,5 +296,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 if __name__ == "__main__":
     args = parse_args()
     run_summary = main(county_filter=args.county)
-    print(run_summary)
+    summary_payload = build_summary_payload(run_summary)
+    print(f"SUMMARY_JSON: {json.dumps(summary_payload)}")
     sys.exit(0)

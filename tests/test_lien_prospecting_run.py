@@ -1,4 +1,6 @@
+import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -153,6 +155,32 @@ class TestParseArgs:
         assert args.county is None
 
 
+class TestBuildSummaryPayload:
+    def test_quiet_true_when_every_county_clean(self):
+        payload = run.build_summary_payload(
+            {"County One": {"new": 0, "failed_sources": []}}
+        )
+
+        assert payload == {"counties": {"County One": {"new": 0, "failed_sources": []}}, "quiet": True}
+
+    def test_quiet_false_when_a_county_has_new_rows(self):
+        payload = run.build_summary_payload(
+            {"County One": {"new": 3, "failed_sources": []}}
+        )
+
+        assert payload["quiet"] is False
+
+    def test_quiet_false_when_any_county_has_a_failure(self):
+        payload = run.build_summary_payload(
+            {
+                "County One": {"new": 0, "failed_sources": []},
+                "County Two": {"new": 0, "failed_sources": [{"source_kind": "tax_lien", "url": None, "reason": "invalid_json"}]},
+            }
+        )
+
+        assert payload["quiet"] is False
+
+
 class TestMainSubprocessExitCode:
     def test_process_exits_zero_even_when_every_source_fails(self, tmp_path):
         # Isolated copy of the project layout so this never touches the real
@@ -179,3 +207,36 @@ class TestMainSubprocessExitCode:
         )
 
         assert result.returncode == 0
+
+    def test_last_stdout_line_is_valid_summary_json(self, tmp_path):
+        # Same isolated-copy setup as above, but this asserts on the
+        # SUMMARY_JSON: contract (task-06 AC#1): it must be the literal last
+        # line of stdout and parse as {"counties": {...}, "quiet": bool}.
+        project_root = tmp_path / "project"
+        pkg_dir = project_root / "scripts" / "lien_prospecting"
+        pkg_dir.mkdir(parents=True)
+        pkg_dir.joinpath("run.py").write_text(Path(run.__file__).read_text())
+
+        counties_dir = pkg_dir / "counties"
+        counties_dir.mkdir()
+        _write_county_yaml(counties_dir, "county_one", "County One")
+
+        web_use_dir = _write_stub_web_use_dir(tmp_path)
+
+        result = subprocess.run(
+            [sys.executable, str(pkg_dir / "run.py")],
+            cwd=project_root,
+            env={**os.environ, "WEB_USE_DIR": str(web_use_dir)},
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        lines = result.stdout.strip("\n").splitlines()
+        last_line = lines[-1]
+
+        assert re.match(r"^SUMMARY_JSON: \{.*\}$", last_line)
+        payload = json.loads(last_line[len("SUMMARY_JSON: "):])
+        assert set(payload.keys()) == {"counties", "quiet"}
+        assert isinstance(payload["quiet"], bool)
+        assert "County One" in payload["counties"]
