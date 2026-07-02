@@ -164,5 +164,36 @@ def diff_new_rows(
     return [row for row in parsed_rows if row_key(row, dedup_key) not in existing_keys]
 
 
+LEDGER_FIELDS = [
+    "first_seen",
+    "source_kind",
+    "parcel_number",
+    "document_number",
+    "owner_name",
+    "property_address",
+    "lien_amount",
+    "filing_date",
+    "source_url",
+]
+
+
+def append_ledger(
+    path: Path, new_rows: list[dict], source_kind: str, source_url: str, run_date: str
+) -> None:
+    """Append new_rows to the ledger CSV at path, creating it with the header if missing."""
+    write_header = not path.exists()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with path.open("a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=LEDGER_FIELDS)
+        if write_header:
+            writer.writeheader()
+        for row in new_rows:
+            writer.writerow(
+                {field: row.get(field, "") for field in LEDGER_FIELDS}
+                | {"first_seen": run_date, "source_kind": source_kind, "source_url": source_url}
+            )
+
+
 if __name__ == "__main__":
     pass

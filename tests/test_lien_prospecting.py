@@ -350,3 +350,45 @@ class TestDiffNewRows:
         result = run.diff_new_rows(parsed_rows, existing_rows, ["parcel_number", "document_number"])
 
         assert result == []
+
+
+class TestAppendLedger:
+    def test_creates_file_with_header_and_rows(self, tmp_path):
+        path = tmp_path / "maricopa_az.csv"
+        new_rows = [{"parcel_number": "123", "owner_name": "Jane Doe"}]
+
+        run.append_ledger(path, new_rows, "tax_lien", "https://example.com", "2026-07-02")
+
+        result = run.load_ledger(path)
+        assert result == [
+            {
+                "first_seen": "2026-07-02",
+                "source_kind": "tax_lien",
+                "parcel_number": "123",
+                "document_number": "",
+                "owner_name": "Jane Doe",
+                "property_address": "",
+                "lien_amount": "",
+                "filing_date": "",
+                "source_url": "https://example.com",
+            }
+        ]
+
+    def test_appends_without_rewriting_header(self, tmp_path):
+        path = tmp_path / "maricopa_az.csv"
+        run.append_ledger(path, [{"parcel_number": "123"}], "tax_lien", "url", "2026-07-01")
+
+        run.append_ledger(path, [{"parcel_number": "456"}], "tax_lien", "url", "2026-07-02")
+
+        result = run.load_ledger(path)
+        assert len(result) == 2
+        assert [row["parcel_number"] for row in result] == ["123", "456"]
+
+    def test_missing_lien_amount_does_not_raise(self, tmp_path):
+        path = tmp_path / "maricopa_az.csv"
+        row_missing_lien_amount = {"parcel_number": "123", "owner_name": "Jane Doe"}
+
+        run.append_ledger(path, [row_missing_lien_amount], "tax_lien", "url", "2026-07-02")
+
+        result = run.load_ledger(path)
+        assert result[0]["lien_amount"] == ""
