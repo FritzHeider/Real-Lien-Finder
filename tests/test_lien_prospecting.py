@@ -248,3 +248,28 @@ class TestApplyMinLienAmount:
         result = run.apply_min_lien_amount(rows, 1000)
 
         assert result == [{"parcel_number": "123"}, {"lien_amount": 5000}]
+
+
+class TestLoadLedger:
+    def test_missing_file_returns_empty_list(self, tmp_path):
+        result = run.load_ledger(tmp_path / "does-not-exist.csv")
+
+        assert result == []
+
+    def test_parses_existing_csv_into_row_dicts(self, tmp_path):
+        path = tmp_path / "maricopa_az.csv"
+        path.write_text(
+            "first_seen,source_kind,parcel_number,owner_name\n"
+            "2026-07-01,tax_lien,123,Jane Doe\n"
+        )
+
+        result = run.load_ledger(path)
+
+        assert result == [
+            {
+                "first_seen": "2026-07-01",
+                "source_kind": "tax_lien",
+                "parcel_number": "123",
+                "owner_name": "Jane Doe",
+            }
+        ]

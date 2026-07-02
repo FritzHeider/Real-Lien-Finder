@@ -5,6 +5,7 @@ Loads per-county YAML configs, drives the Web-Use browsing agent
 will (in later tasks) diff results against a per-county ledger.
 """
 
+import csv
 import json
 import os
 import re
@@ -126,6 +127,15 @@ def apply_min_lien_amount(rows: list[dict], min_amount: float | None) -> list[di
             kept.append(row)
 
     return kept
+
+
+def load_ledger(path: Path) -> list[dict]:
+    """Read a county ledger CSV into a list of row dicts; [] if it doesn't exist."""
+    if not path.exists():
+        return []
+
+    with path.open(newline="") as f:
+        return list(csv.DictReader(f))
 
 
 if __name__ == "__main__":
