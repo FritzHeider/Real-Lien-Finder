@@ -25,12 +25,20 @@ class TestResolveWebUseDir:
 
         assert result == web_use_dir.resolve()
 
-    def test_defaults_to_sibling_web_use_dir_when_env_unset(self, monkeypatch):
+    def test_defaults_to_sibling_web_use_dir_when_env_unset(self, tmp_path, monkeypatch):
+        fake_project_root = tmp_path / "lien-prospecting"
+        fake_project_root.mkdir()
+        fake_web_use_dir = tmp_path / "Web-Use"
+        (fake_web_use_dir / "src").mkdir(parents=True)
+        (fake_web_use_dir / "src" / "cli.py").write_text("# stub cli\n")
+
         monkeypatch.delenv("WEB_USE_DIR", raising=False)
+        monkeypatch.setattr(run, "PROJECT_ROOT", fake_project_root)
 
         result = run.resolve_web_use_dir()
 
-        assert result == (run.PROJECT_ROOT / ".." / "Web-Use").resolve()
+        assert result == (fake_project_root / ".." / "Web-Use").resolve()
+        assert result == fake_web_use_dir.resolve()
 
 
 class TestLoadCounties:
