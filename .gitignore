@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.env
+.pytest_cache/
+.mypy_cache/
+.coverage
+
+# macOS
+.DS_Store
+
+# lien-prospecting runtime state (see .ralph/specs/lien-prospecting/design.md)
+scripts/lien_prospecting/ledger/
+scripts/lien_prospecting/run.log
+
+# Ralph orchestrator state — keep runtime state ignored, commit specs/tasks as text artifacts
+.ralph/*
+!.ralph/specs/
+!.ralph/specs/**
+!.ralph/tasks/
+.ralph/tasks/**
+!.ralph/tasks/**/
+!.ralph/tasks/*.code-task.md
+!.ralph/tasks/**/*.code-task.md
