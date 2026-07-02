@@ -1,8 +1,8 @@
 ---
-status: in_progress
+status: completed
 created: 2026-07-01
 started: 2026-07-02
-completed: null
+completed: 2026-07-02
 ---
 # Task: run.py — Extraction Stage
 

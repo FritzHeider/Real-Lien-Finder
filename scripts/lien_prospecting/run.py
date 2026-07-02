@@ -110,5 +110,23 @@ def run_extraction(
     return None, "invalid_json"
 
 
+def apply_min_lien_amount(rows: list[dict], min_amount: float | None) -> list[dict]:
+    """Keep rows whose lien_amount >= min_amount; keep non-numeric/missing as-is."""
+    if min_amount is None:
+        return rows
+
+    kept = []
+    for row in rows:
+        try:
+            amount = float(row["lien_amount"])
+        except (KeyError, TypeError, ValueError):
+            kept.append(row)
+            continue
+        if amount >= min_amount:
+            kept.append(row)
+
+    return kept
+
+
 if __name__ == "__main__":
     pass

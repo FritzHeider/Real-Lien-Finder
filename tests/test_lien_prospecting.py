@@ -221,3 +221,30 @@ class TestRunExtraction:
         assert kwargs["timeout"] == 300
         assert kwargs["capture_output"] is True
         assert kwargs["text"] is True
+
+
+class TestApplyMinLienAmount:
+    def test_none_min_amount_returns_rows_unchanged(self):
+        rows = [{"lien_amount": 500}, {"lien_amount": "unknown"}]
+
+        result = run.apply_min_lien_amount(rows, None)
+
+        assert result == rows
+
+    def test_filters_below_threshold_and_keeps_non_numeric(self):
+        rows = [
+            {"lien_amount": 500},
+            {"lien_amount": 2000},
+            {"lien_amount": "unknown"},
+        ]
+
+        result = run.apply_min_lien_amount(rows, 1000)
+
+        assert result == [{"lien_amount": 2000}, {"lien_amount": "unknown"}]
+
+    def test_keeps_row_with_missing_lien_amount_key(self):
+        rows = [{"parcel_number": "123"}, {"lien_amount": 5000}]
+
+        result = run.apply_min_lien_amount(rows, 1000)
+
+        assert result == [{"parcel_number": "123"}, {"lien_amount": 5000}]
