@@ -1,8 +1,8 @@
 ---
-status: pending
+status: completed
 created: 2026-07-01
-started: null
-completed: null
+started: 2026-07-02
+completed: 2026-07-02
 ---
 # Task: Daily Scheduling + End-to-End Validation
 
@@ -58,6 +58,40 @@ This is the final task in the lien-prospecting feature. Everything up to this po
    - Given `git status` after a completed run
    - When checking tracked vs. ignored paths
    - Then `scripts/lien_prospecting/ledger/` and `run.log` do not appear as trackable/stageable changes, while `run.py`, the county YAMLs, and the SKILL.md are committed
+
+## Completion Notes
+
+- **Cron entry**: Created via `CronCreate` (job `f102b64c`, `47 6 * * *`, recurring), confirmed via
+  `CronList`. **Deviation flagged**: this environment has two distinct scheduling primitives —
+  the local session-scoped `CronCreate` tool this task names in parens, and a separate `schedule`
+  Skill that creates a durable Anthropic-cloud routine. The cloud routine was evaluated and
+  rejected: it spawns an isolated sandbox with a fresh git checkout per run, so it cannot see the
+  local `../Web-Use` sibling checkout, its `.env`/API key, or this project's local gitignored
+  per-county ledger CSVs (which must persist across runs for dedup to work) — using it would
+  silently break extraction and dedup. Went with `CronCreate` per the task's explicit naming.
+  Caveat: `CronCreate` jobs are session-only (not written to disk, die when this Claude Code
+  session exits) and auto-expire after 7 days regardless — so the "daily-automated" cadence only
+  holds while this session stays alive, and needs to be re-armed at least weekly. See
+  `.ralph/agent/decisions.md` DEC-001 for full reasoning and options to make this durable.
+- **E2E run**: `uv run python scripts/lien_prospecting/run.py` (no `--county` filter) ran all 3
+  counties, exit 0. `SUMMARY_JSON:` printed as the final stdout line with all 3 county names
+  present, each with `new` count and/or `failed_sources`. Douglas's tax_lien source and Palm
+  Beach's tax_lien source succeeded (0 new rows each, current site content); the other 4 sources
+  came back `invalid_json` (site structure vs. extraction prompt / LLM output format mismatch),
+  logged to `run.log` with county/url/reason — a clean, non-crashing failure per the design's
+  error-handling table, not an unhandled exception.
+- **Ledger state**: `douglas_co.csv` and `palm_beach_fl.csv` created/updated under
+  `scripts/lien_prospecting/ledger/` (header only, 0 new rows this run); no `maricopa_az.csv`
+  since both of Maricopa's sources failed this run (ledger is only written on a source's success
+  path, by design — nothing to append).
+- **Push notification**: followed the skill's documented follow-up — parsed `quiet: false` from
+  `SUMMARY_JSON`, called `PushNotification` with a summary. Mobile push was not actually delivered
+  because Remote Control is inactive in this environment, which the tool reports as an expected,
+  non-error outcome.
+- **Gitignore/commit**: `scripts/lien_prospecting/ledger/` and `run.log` already gitignored (added
+  during task-05); confirmed via `git check-ignore -v` post-run that neither appears in
+  `git status --porcelain`. All source (`run.py`, county YAMLs, `SKILL.md`, spec/task files) is
+  tracked and committed in this task's commit.
 
 ## Metadata
 - **Complexity**: Medium
