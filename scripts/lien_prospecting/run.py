@@ -5,17 +5,23 @@ Loads per-county YAML configs, drives the Web-Use browsing agent
 will (in later tasks) diff results against a per-county ledger.
 """
 
+import argparse
 import csv
 import hashlib
 import json
 import os
 import re
 import subprocess
+import sys
+from datetime import date, datetime
 from pathlib import Path
 
 import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+COUNTIES_DIR = PROJECT_ROOT / "scripts" / "lien_prospecting" / "counties"
+LEDGER_DIR = PROJECT_ROOT / "scripts" / "lien_prospecting" / "ledger"
+RUN_LOG_PATH = PROJECT_ROOT / "scripts" / "lien_prospecting" / "run.log"
 
 
 def resolve_web_use_dir() -> Path:
@@ -195,5 +201,88 @@ def append_ledger(
             )
 
 
+def run_county(county_config: dict, web_use_dir: Path) -> dict:
+    """Run every source for one county, diffing/appending new rows to its ledger.
+
+    A source failure is collected into failed_sources rather than raised, so
+    one bad source doesn't stop the rest of the county's sources (or other
+    counties, via run_county's caller).
+    """
+    county_name = county_config["name"]
+    lookback_days = county_config["lookback_days"]
+    min_lien_amount = county_config.get("min_lien_amount")
+    dedup_key = county_config["dedup_key"]
+    ledger_path = county_config["_ledger_path"]
+    run_date = date.today().isoformat()
+
+    new_count = 0
+    failed_sources = []
+
+    for source in county_config["sources"]:
+        rows, failure = run_extraction(county_name, source, lookback_days, web_use_dir)
+        if failure is not None:
+            failed_sources.append(
+                {"source_kind": source["kind"], "url": source.get("url"), "reason": failure}
+            )
+            continue
+
+        assert rows is not None  # guaranteed by run_extraction's (rows, failure) contract
+        rows = apply_min_lien_amount(rows, min_lien_amount)
+        existing_rows = load_ledger(ledger_path)
+        new_rows = diff_new_rows(rows, existing_rows, dedup_key)
+        append_ledger(ledger_path, new_rows, source["kind"], source.get("url", ""), run_date)
+        new_count += len(new_rows)
+
+    return {"new": new_count, "failed_sources": failed_sources}
+
+
+def main(
+    counties_dir: Path = COUNTIES_DIR,
+    ledger_dir: Path = LEDGER_DIR,
+    county_filter: str | None = None,
+) -> dict:
+    """Run the full lien-prospecting watch across every configured county.
+
+    Resolves web_use_dir once up front and lets a misconfiguration raise
+    immediately, rather than surfacing it as a per-source failure.
+    """
+    web_use_dir = resolve_web_use_dir()
+
+    counties = load_counties(counties_dir)
+    if county_filter is not None:
+        counties = [county for county in counties if county["_slug"] == county_filter]
+
+    summary = {}
+    for county in counties:
+        county["_ledger_path"] = ledger_dir / f"{county['_slug']}.csv"
+        result = run_county(county, web_use_dir)
+        summary[county["name"]] = result
+
+        if result["failed_sources"]:
+            RUN_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with RUN_LOG_PATH.open("a") as f:
+                for failure in result["failed_sources"]:
+                    f.write(
+                        f"{datetime.now().isoformat()} "
+                        f"county={county['name']!r} url={failure['url']!r} "
+                        f"reason={failure['reason']}\n"
+                    )
+
+    return summary
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the lien-prospecting watch.")
+    parser.add_argument(
+        "--county",
+        default=None,
+        help="Limit the run to one county (matches a county YAML's filename stem).",
+    )
+    return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
-    pass
+    args = parse_args()
+    run_summary = main(county_filter=args.county)
+    print(run_summary)
+    sys.exit(0)
