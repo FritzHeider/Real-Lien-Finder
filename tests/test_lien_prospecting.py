@@ -176,6 +176,52 @@ class TestRunExtraction:
         assert rows is None
         assert failure == "invalid_json"
 
+    def test_max_steps_reached_with_marker_present_returns_max_steps_exhausted(self):
+        # Web-Use's cli.py prints the marker+last message unconditionally,
+        # even when the agent hit its step budget mid-navigation (e.g. stuck
+        # clicking stale DOM indices on a multi-step doc-search UI) — so the
+        # marker being present doesn't mean the run actually completed.
+        mock_result = MagicMock(
+            returncode=0,
+            stdout=(
+                "[Agent] \U0001f6a8 Error: Agent reached max steps (40) without completing.\n\n"
+                "[+] Final Agent Response:\n"
+                "Navigated to https://example-county.gov/liens\n"
+            ),
+            stderr="",
+        )
+
+        with patch("subprocess.run", return_value=mock_result):
+            rows, failure = run.run_extraction(
+                "Maricopa AZ", SOURCE, 7, Path("/fake/web-use")
+            )
+
+        assert rows is None
+        assert failure == "max_steps_exhausted"
+
+    def test_browser_abort_with_marker_present_returns_agent_aborted(self):
+        # A crashed browser/CDP session (e.g. "no close frame received or
+        # sent") makes the agent abort after repeated tool failures; the
+        # marker text left behind is a stale action description, not data.
+        mock_result = MagicMock(
+            returncode=0,
+            stdout=(
+                "[Agent] \U0001f6a8 Error: Agent aborted after 3 consecutive failures. "
+                "Last: Tool 'goto_tool' async failed: no close frame received or sent\n\n"
+                "[+] Final Agent Response:\n"
+                "Navigated to https://example-county.gov/liens\n"
+            ),
+            stderr="",
+        )
+
+        with patch("subprocess.run", return_value=mock_result):
+            rows, failure = run.run_extraction(
+                "Maricopa AZ", SOURCE, 7, Path("/fake/web-use")
+            )
+
+        assert rows is None
+        assert failure == "agent_aborted"
+
     def test_non_zero_exit_code_returns_subprocess_error(self):
         mock_result = MagicMock(returncode=1, stdout="", stderr="boom")
 

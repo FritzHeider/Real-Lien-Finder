@@ -100,7 +100,8 @@ One file per county at `ledger/<county_slug>.csv`:
 |---|---|
 | LLM final answer isn't valid JSON | `json.loads` → regex fallback → `failed: invalid_json`, raw output logged to `scripts/lien_prospecting/run.log`. |
 | Agent can't find data / portal layout changed | Falls into the same `invalid_json` path; distinguishable via the logged raw text. |
-| CAPTCHA / anti-bot block / agent exhausts steps | Logged specifically as `failed: max_steps_exhausted` (vs. generic `invalid_json`) so a blocked site is distinguishable from a prompt that needs tuning. No human-in-the-loop fallback — unattended daily run. |
+| CAPTCHA / anti-bot block / agent exhausts steps | Logged specifically as `failed: max_steps_exhausted` (vs. generic `invalid_json`) so a blocked site is distinguishable from a prompt that needs tuning. No human-in-the-loop fallback — unattended daily run. Detected via stdout's "reached max steps" message, since Web-Use's `cli.py` still prints the final-response marker even when the agent hit its step budget without completing — marker presence alone isn't proof of a real result. |
+| Browser/CDP session crash mid-run (e.g. "no close frame received or sent") | Web-Use's agent aborts after 3 consecutive tool failures and exits 0 with a stale final-response marker; detected via stdout's "aborted after N consecutive failures" message and logged as `failed: agent_aborted`, distinct from `invalid_json`, so a browser/session-layer crash isn't mistaken for a JSON-formatting problem. **Deviation from original design**: this failure mode/reason wasn't in the original table — added after live e2e testing surfaced it (2026-07-04) as a distinct, recurring cause on 2 of 3 counties' document-search sources. |
 | Subprocess crash/hang | 5-minute timeout per source; timeout or non-zero exit → `failed: subprocess_error`. |
 | Row missing `dedup_key` field(s) | Fallback hash of `(owner_name, property_address, filing_date)`. |
 

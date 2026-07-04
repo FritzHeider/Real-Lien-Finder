@@ -115,6 +115,12 @@ def run_extraction(
         except json.JSONDecodeError:
             pass
 
+    if re.search(r"reached max steps", result.stdout, re.IGNORECASE):
+        return None, "max_steps_exhausted"
+
+    if re.search(r"aborted after \d+ consecutive failures", result.stdout, re.IGNORECASE):
+        return None, "agent_aborted"
+
     return None, "invalid_json"
 
 
