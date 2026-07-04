@@ -70,6 +70,7 @@ def build_prompt(source: dict, lookback_days: int) -> str:
 
 
 FINAL_RESPONSE_MARKER = "[+] Final Agent Response:"
+DEFAULT_MAX_STEPS = 40
 
 
 def run_extraction(
@@ -84,9 +85,11 @@ def run_extraction(
     if url and url not in prompt:
         prompt = f"Start at {url}. {prompt}"
 
+    max_steps = source.get("max_steps", DEFAULT_MAX_STEPS)
+
     try:
         result = subprocess.run(
-            ["uv", "run", "python", "src/cli.py", "--query", prompt, "--headless", "--steps", "40"],
+            ["uv", "run", "python", "src/cli.py", "--query", prompt, "--headless", "--steps", str(max_steps)],
             cwd=web_use_dir,
             timeout=300,
             capture_output=True,

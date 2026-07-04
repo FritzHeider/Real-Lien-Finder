@@ -13,6 +13,7 @@ sources:
       ONLY a JSON array of objects with those exact keys, no prose.
   - kind: contractor_lien
     url: "https://apps.douglas.co.us/LandmarkWeb/"
+    max_steps: 80   # LandmarkWeb's disclaimer/menu navigation exhausted the default 40-step budget
     extract_prompt: >
       Search recorded documents of type "Mechanic's Lien" filed in the last
       {lookback_days} days. For each result, extract: document_number,

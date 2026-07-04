@@ -268,6 +268,22 @@ class TestRunExtraction:
         assert kwargs["capture_output"] is True
         assert kwargs["text"] is True
 
+    def test_source_max_steps_override_passed_to_subprocess(self):
+        web_use_dir = Path("/fake/web-use")
+        source_with_override = dict(SOURCE, max_steps=80)
+        mock_result = MagicMock(
+            returncode=0,
+            stdout="[+] Final Agent Response:\n[]\n",
+            stderr="",
+        )
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            run.run_extraction("Maricopa AZ", source_with_override, 7, web_use_dir)
+
+        command = mock_run.call_args.args[0]
+        steps_index = command.index("--steps")
+        assert command[steps_index + 1] == "80"
+
 
 class TestApplyMinLienAmount:
     def test_none_min_amount_returns_rows_unchanged(self):

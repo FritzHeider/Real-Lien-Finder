@@ -66,6 +66,7 @@ dedup_key: ["parcel_number", "document_number"]
 - `extract_prompt` is templated (`{lookback_days}`) and fed into `src/cli.py --query`, with the source `url` as the agent's starting point.
 - `dedup_key`: whichever of these fields is present per source uniquely identifies a lien; used to detect "new" rows on each run.
 - `min_lien_amount` is enforced deterministically in `run.py` after parsing — never delegated to the LLM prompt, since numeric filtering isn't reliably enforced across every row by an LLM.
+- `max_steps` (optional, per-source): overrides the default 40-step budget passed to `src/cli.py --steps`. **Deviation from original design**: the design originally hardcoded `--steps 40` for every source; added 2026-07-04 after live e2e testing showed Douglas's `contractor_lien` source (LandmarkWeb's disclaimer/menu navigation) exhausting 40 steps without reaching the search form. Defaults to 40 when absent, so existing configs are unaffected.
 
 ## Driver Script (`run.py`)
 
